@@ -1,0 +1,7 @@
+dist/
+release-assets/
+scripts/release.ps1
+*.exe
+*.log
+.gocache/
+.gomodcache/
