@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 
 	"tinychain/mcp"
 )
@@ -316,6 +317,11 @@ func (p *ParserTools) parts(path string, maxItems int) ([]map[string]any, error)
 
 func extractText(result map[string]any, maxBytes int) string {
 	if text, ok := result["text"].(string); ok {
+		if strings.TrimSpace(text) == "" {
+			if note, ok := result["parser_note"].(string); ok && note != "" {
+				return note
+			}
+		}
 		return truncate(text, maxBytes)
 	}
 	return truncate(pretty(result), maxBytes)

@@ -46,6 +46,20 @@ func TestDocxAndParts(t *testing.T) {
 	}
 }
 
+func TestPDFTextSkipsBinaryChunks(t *testing.T) {
+	data := []byte("%PDF\nBT (Readable inspection text with several useful words) Tj ET\n(\xff\x00\x01\x02\x03\x04\x05\x06)\n(Adobe UCS)\n(fi)\n")
+	text := pdfText(data)
+	if !strings.Contains(text, "Readable inspection text") {
+		t.Fatalf("pdf text missing readable chunk: %q", text)
+	}
+	if strings.Contains(text, "Adobe UCS") || strings.Contains(text, "fi") {
+		t.Fatalf("pdf text included font-map noise: %q", text)
+	}
+	if strings.ContainsRune(text, '\ufffd') || strings.ContainsRune(text, '\x00') {
+		t.Fatalf("pdf text included binary junk: %q", text)
+	}
+}
+
 func TestToolsList(t *testing.T) {
 	server := testServer(t, t.TempDir())
 	resp := callTool(t, server, "tools/list", nil)
