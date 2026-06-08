@@ -12,6 +12,7 @@ It is designed for NullBot, but it is not NullBot-specific. Any MCP-capable clie
 | `detect_file_type` | Identify type, MIME hint, parser family, size, and available parts. |
 | `parse_file` | Parse a file into structured JSON. |
 | `extract_text` | Return plain extracted text or a bounded structured fallback. |
+| `vision_extract` | Run local text extraction plus OpenAI/OpenRouter vision/OCR when keys are available. |
 | `extract_metadata` | Return metadata and structural hints without full content. |
 | `list_document_parts` | List pages/slides/sheets/chapters/archive entries where available. |
 | `extract_part` | Extract one ZIP-container part by internal path. |
@@ -22,8 +23,8 @@ It is designed for NullBot, but it is not NullBot-specific. Any MCP-capable clie
 
 | Family | Extensions | Notes |
 | --- | --- | --- |
-| PDF | `.pdf` | Best-effort text-layer and metadata extraction. Scanned PDFs need future OCR/Tika fallback. |
-| Word OOXML | `.docx` | Extracts `word/document.xml` text and core properties. |
+| PDF | `.pdf` | Best-effort text-layer and metadata extraction. With `OPENAI_API_KEY`, `vision_extract` can send PDFs to OpenAI Responses for text+page-image reading. |
+| Word OOXML | `.docx` | Extracts `word/document.xml` text and core properties. With `OPENAI_API_KEY` or `OPENROUTER_API_KEY`, `vision_extract` can OCR/read embedded `word/media/*` images. |
 | PowerPoint OOXML | `.pptx` | Extracts slide XML text and core properties. |
 | Excel OOXML | `.xlsx`, `.xlsm` | Extracts shared strings and worksheet row samples. |
 | Delimited tables | `.csv`, `.tsv` | Returns row samples. |
@@ -34,6 +35,16 @@ It is designed for NullBot, but it is not NullBot-specific. Any MCP-capable clie
 | Notebooks | `.ipynb` | Extracts cell type/source/output counts. |
 | Web/XML/Data | `.html`, `.htm`, `.xml`, `.rss`, `.atom`, `.json` | Extracts text or pretty JSON preview. |
 | Images | `.png`, `.jpg`, `.jpeg`, `.gif` | Extracts dimensions and format metadata. |
+
+## Vision/OCR
+
+`vision_extract` is opt-in and uses environment variables:
+
+- `OPENAI_API_KEY` enables OpenAI Responses vision. PDFs are sent as base64 file inputs; images use base64 data URLs.
+- `OPENROUTER_API_KEY` enables OpenRouter image vision for direct image files and DOCX embedded images.
+- `NULLBOT_VISION_PROVIDER` and `NULLBOT_VISION_MODEL` can steer the provider/model. NullBot passes these at runtime when configured.
+
+The tool always returns a local text extraction section first, then a vision/OCR section when a compatible key/model is available.
 
 ## Safety Model
 

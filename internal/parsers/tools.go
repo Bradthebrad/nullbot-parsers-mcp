@@ -20,6 +20,7 @@ func (p *ParserTools) Tools() []mcp.Tool {
 		p.extractPartTool(),
 		p.extractTablesTool(),
 		p.parseArchiveTool(),
+		p.visionExtractTool(),
 	}
 }
 
@@ -37,7 +38,9 @@ func (p *ParserTools) parserWorkspaceInfoTool() mcp.Tool {
 					"pdf-best-effort", "docx", "pptx", "xlsx/xlsm", "csv/tsv", "epub",
 					"zip/tar/gzip/tgz", "eml", "ipynb", "html", "xml/rss/atom", "json",
 					"png/jpeg/gif image metadata", "opendocument text",
+					"vision_extract with OpenAI/OpenRouter keys from environment",
 				},
+				"vision": visionStatus(),
 			})), nil
 		},
 	}
@@ -75,7 +78,7 @@ func (p *ParserTools) detectFileTypeTool() mcp.Tool {
 func (p *ParserTools) parseFileTool() mcp.Tool {
 	return mcp.Tool{
 		Name:        "parse_file",
-		Description: "Parse a supported binary/document file into structured JSON containing metadata, extracted text, rows, slides, chapters, or entries.",
+		Description: "Parse a supported binary/document file into structured JSON containing metadata, extracted text, rows, slides, chapters, or entries. For scanned PDFs, images, or DOCX embedded-image OCR, use vision_extract.",
 		InputSchema: schema(map[string]any{
 			"path":      stringProp("Workspace-relative file path."),
 			"max_bytes": numberProp("Maximum extracted text bytes. Defaults to server max_bytes."),
@@ -102,7 +105,7 @@ func (p *ParserTools) parseFileTool() mcp.Tool {
 func (p *ParserTools) extractTextTool() mcp.Tool {
 	return mcp.Tool{
 		Name:        "extract_text",
-		Description: "Extract plain text from a supported file, preserving rough page/slide/sheet/chapter boundaries where possible.",
+		Description: "Extract plain text from a supported file, preserving rough page/slide/sheet/chapter boundaries where possible. If little/no text is returned from a PDF/DOCX/image and vision keys are available, call vision_extract.",
 		InputSchema: schema(map[string]any{
 			"path":      stringProp("Workspace-relative file path."),
 			"max_bytes": numberProp("Maximum text bytes. Defaults to server max_bytes."),
@@ -253,6 +256,46 @@ func (p *ParserTools) parseArchiveTool() mcp.Tool {
 				return mcp.ToolResult{}, err
 			}
 			return mcp.Text(pretty(result)), nil
+		},
+	}
+}
+
+func (p *ParserTools) visionExtractTool() mcp.Tool {
+	return mcp.Tool{
+		Name:        "vision_extract",
+		Description: "Run a local text extraction pass, then use configured OpenAI/OpenRouter vision when available to OCR/read PDF pages, images, or embedded DOCX images.",
+		InputSchema: schema(map[string]any{
+			"path":       stringProp("Workspace-relative PDF, DOCX, or image path."),
+			"prompt":     stringProp("Optional focused instruction for the vision/OCR pass."),
+			"max_bytes":  numberProp("Maximum local text bytes. Defaults to server max_bytes."),
+			"max_images": numberProp("Maximum embedded images to send for DOCX/image-based vision. Defaults to 6."),
+			"provider":   stringProp("Optional override: openai or openrouter."),
+			"model":      stringProp("Optional model override. Defaults to NULLBOT_VISION_MODEL or a provider default."),
+		}, "path"),
+		Handler: func(ctx context.Context, args map[string]any) (mcp.ToolResult, error) {
+			path, err := p.resolve(textArg(args, "path"))
+			if err != nil {
+				return mcp.ToolResult{}, err
+			}
+			maxBytes := intArg(args, "max_bytes", int(p.maxBytes))
+			if maxBytes <= 0 || int64(maxBytes) > p.maxBytes {
+				maxBytes = int(p.maxBytes)
+			}
+			result, err := p.parse(path, maxBytes)
+			localText := ""
+			if err == nil {
+				localText = extractText(result, maxBytes)
+			}
+			vision, err := p.visionExtract(ctx, path, visionOptions{
+				Provider:  textArg(args, "provider"),
+				Model:     textArg(args, "model"),
+				Prompt:    textArg(args, "prompt"),
+				MaxImages: intArg(args, "max_images", 6),
+			})
+			if err != nil {
+				vision = "Vision/OCR pass unavailable: " + err.Error()
+			}
+			return mcp.Text(formatVisionResult(p.rel(path), localText, vision)), nil
 		},
 	}
 }

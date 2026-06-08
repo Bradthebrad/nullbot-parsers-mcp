@@ -3,6 +3,7 @@ package parsers
 import (
 	"archive/zip"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -57,6 +58,24 @@ func TestPDFTextSkipsBinaryChunks(t *testing.T) {
 	}
 	if strings.ContainsRune(text, '\ufffd') || strings.ContainsRune(text, '\x00') {
 		t.Fatalf("pdf text included binary junk: %q", text)
+	}
+}
+
+func TestVisionExtractReportsMissingKeysGracefully(t *testing.T) {
+	t.Setenv("OPENAI_API_KEY", "")
+	t.Setenv("OPENROUTER_API_KEY", "")
+	dir := t.TempDir()
+	png, err := base64.StdEncoding.DecodeString("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADUlEQVR42mP8z8BQDwAFgwJ/lx1J8wAAAABJRU5ErkJggg==")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "pixel.png"), png, 0600); err != nil {
+		t.Fatal(err)
+	}
+	server := testServer(t, dir)
+	text := resultText(callMCPTool(t, server, "vision_extract", map[string]any{"path": "pixel.png"}))
+	if !strings.Contains(text, "Local text extraction") || !strings.Contains(text, "Vision/OCR pass unavailable") {
+		t.Fatalf("vision_extract output = %s", text)
 	}
 }
 
