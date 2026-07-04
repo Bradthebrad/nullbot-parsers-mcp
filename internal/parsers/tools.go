@@ -6,7 +6,7 @@ import (
 	"os"
 	"strings"
 
-	"tinychain/mcp"
+	"github.com/Bradthebrad/tinychain/mcp"
 )
 
 func (p *ParserTools) Tools() []mcp.Tool {

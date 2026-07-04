@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"tinychain/mcp"
+	"github.com/Bradthebrad/tinychain/mcp"
 )
 
 func TestCSVAndHTMLParsing(t *testing.T) {
