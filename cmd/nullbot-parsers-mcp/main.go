@@ -10,7 +10,7 @@ import (
 	"github.com/Bradthebrad/tinychain/mcp"
 )
 
-const version = "0.1.0"
+const version = "0.3.0"
 
 func main() {
 	transport := flag.String("transport", "stdio", "Transport: stdio, streamable-http, http, or sse.")

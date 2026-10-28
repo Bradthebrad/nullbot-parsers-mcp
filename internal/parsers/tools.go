@@ -49,8 +49,8 @@ func (p *ParserTools) parserWorkspaceInfoTool() mcp.Tool {
 func (p *ParserTools) detectFileTypeTool() mcp.Tool {
 	return mcp.Tool{
 		Name:        "detect_file_type",
-		Description: "Detect file type, MIME hint, parser family, size, and supported document parts for a workspace-relative file.",
-		InputSchema: schema(map[string]any{"path": stringProp("Workspace-relative file path.")}, "path"),
+		Description: "Detect file type, MIME hint, parser family, size, and supported document parts for a file in the workspace.",
+		InputSchema: schema(map[string]any{"path": stringProp("File path in the workspace, relative or absolute.")}, "path"),
 		Handler: func(ctx context.Context, args map[string]any) (mcp.ToolResult, error) {
 			path, err := p.resolve(textArg(args, "path"))
 			if err != nil {
@@ -80,7 +80,7 @@ func (p *ParserTools) parseFileTool() mcp.Tool {
 		Name:        "parse_file",
 		Description: "Parse a supported binary/document file into structured JSON containing metadata, extracted text, rows, slides, chapters, or entries. For scanned PDFs, images, or DOCX embedded-image OCR, use vision_extract.",
 		InputSchema: schema(map[string]any{
-			"path":      stringProp("Workspace-relative file path."),
+			"path":      stringProp("File path in the workspace, relative or absolute."),
 			"max_bytes": numberProp("Maximum extracted text bytes. Defaults to server max_bytes."),
 		}, "path"),
 		Handler: func(ctx context.Context, args map[string]any) (mcp.ToolResult, error) {
@@ -107,7 +107,7 @@ func (p *ParserTools) extractTextTool() mcp.Tool {
 		Name:        "extract_text",
 		Description: "Extract plain text from a supported file, preserving rough page/slide/sheet/chapter boundaries where possible. If little/no text is returned from a PDF/DOCX/image and vision keys are available, call vision_extract.",
 		InputSchema: schema(map[string]any{
-			"path":      stringProp("Workspace-relative file path."),
+			"path":      stringProp("File path in the workspace, relative or absolute."),
 			"max_bytes": numberProp("Maximum text bytes. Defaults to server max_bytes."),
 		}, "path"),
 		Handler: func(ctx context.Context, args map[string]any) (mcp.ToolResult, error) {
@@ -116,6 +116,9 @@ func (p *ParserTools) extractTextTool() mcp.Tool {
 				return mcp.ToolResult{}, err
 			}
 			maxBytes := intArg(args, "max_bytes", int(p.maxBytes))
+			if maxBytes <= 0 || int64(maxBytes) > p.maxBytes {
+				maxBytes = int(p.maxBytes) // never more than the server allows
+			}
 			result, err := p.parse(path, maxBytes)
 			if err != nil {
 				return mcp.ToolResult{}, err
@@ -129,7 +132,7 @@ func (p *ParserTools) extractMetadataTool() mcp.Tool {
 	return mcp.Tool{
 		Name:        "extract_metadata",
 		Description: "Return metadata and structural hints for a supported file without returning full content.",
-		InputSchema: schema(map[string]any{"path": stringProp("Workspace-relative file path.")}, "path"),
+		InputSchema: schema(map[string]any{"path": stringProp("File path in the workspace, relative or absolute.")}, "path"),
 		Handler: func(ctx context.Context, args map[string]any) (mcp.ToolResult, error) {
 			path, err := p.resolve(textArg(args, "path"))
 			if err != nil {
@@ -156,7 +159,7 @@ func (p *ParserTools) listDocumentPartsTool() mcp.Tool {
 		Name:        "list_document_parts",
 		Description: "List pages/slides/sheets/chapters/archive entries when a file exposes addressable parts.",
 		InputSchema: schema(map[string]any{
-			"path":      stringProp("Workspace-relative file path."),
+			"path":      stringProp("File path in the workspace, relative or absolute."),
 			"max_items": numberProp("Maximum parts to return. Defaults to 200."),
 		}, "path"),
 		Handler: func(ctx context.Context, args map[string]any) (mcp.ToolResult, error) {
@@ -179,7 +182,7 @@ func (p *ParserTools) extractPartTool() mcp.Tool {
 		Name:        "extract_part",
 		Description: "Extract one named part from a multi-part document. For archives/EPUB/OOXML, part_name is the internal entry path.",
 		InputSchema: schema(map[string]any{
-			"path":      stringProp("Workspace-relative file path."),
+			"path":      stringProp("File path in the workspace, relative or absolute."),
 			"part_name": stringProp("Part name from list_document_parts."),
 			"max_bytes": numberProp("Maximum bytes to return."),
 		}, "path", "part_name"),
@@ -212,7 +215,7 @@ func (p *ParserTools) extractTablesTool() mcp.Tool {
 		Name:        "extract_tables",
 		Description: "Extract table-like data from CSV/TSV/XLSX files. Returns sheet or row samples rather than full huge datasets.",
 		InputSchema: schema(map[string]any{
-			"path":     stringProp("Workspace-relative file path."),
+			"path":     stringProp("File path in the workspace, relative or absolute."),
 			"max_rows": numberProp("Maximum rows per table/sheet. Defaults to 100."),
 		}, "path"),
 		Handler: func(ctx context.Context, args map[string]any) (mcp.ToolResult, error) {
@@ -243,7 +246,7 @@ func (p *ParserTools) parseArchiveTool() mcp.Tool {
 		Name:        "parse_archive",
 		Description: "List archive entries for ZIP/TAR/GZIP/TGZ and ZIP-container document formats like DOCX/PPTX/XLSX/EPUB.",
 		InputSchema: schema(map[string]any{
-			"path":        stringProp("Workspace-relative archive path."),
+			"path":        stringProp("Archive path in the workspace, relative or absolute."),
 			"max_entries": numberProp("Maximum entries to return. Defaults to 500."),
 		}, "path"),
 		Handler: func(ctx context.Context, args map[string]any) (mcp.ToolResult, error) {
@@ -265,7 +268,7 @@ func (p *ParserTools) visionExtractTool() mcp.Tool {
 		Name:        "vision_extract",
 		Description: "Run a local text extraction pass, then use configured OpenAI/OpenRouter vision when available to OCR/read PDF pages, images, or embedded DOCX images.",
 		InputSchema: schema(map[string]any{
-			"path":       stringProp("Workspace-relative PDF, DOCX, or image path."),
+			"path":       stringProp("PDF, DOCX or image path in the workspace, relative or absolute."),
 			"prompt":     stringProp("Optional focused instruction for the vision/OCR pass."),
 			"max_bytes":  numberProp("Maximum local text bytes. Defaults to server max_bytes."),
 			"max_images": numberProp("Maximum embedded images to send for DOCX/image-based vision. Defaults to 6."),

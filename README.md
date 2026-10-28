@@ -58,7 +58,7 @@ All paths are relative to the workspace folder.
 
 NullBot is a small, auditable Go agent ([Bradthebrad/nullbot](https://github.com/Bradthebrad/nullbot)) with a terminal UI and a headless CLI. Its main interface is the desktop app ([Bradthebrad/nullbot_ui](https://github.com/Bradthebrad/nullbot_ui)).
 
-1. In the desktop app, open **Tools > Marketplace** and choose **Install** on NullBot Parsers MCP. **Check for updates** refreshes the catalog from GitHub releases. The Marketplace installs the latest release, currently `v0.1.0`.
+1. In the desktop app, open **Tools > Marketplace** and choose **Install** on NullBot Parsers MCP. Install always fetches the newest release (`v0.3.0` as of this writing) and checks it against the release's `SHA256SUMS.txt`; **Check for updates** refreshes the catalog's listing.
 2. NullBot installs the server to `~/.nullbot/mcp/nullbot-parsers-mcp` and, when the release has a `SHA256SUMS.txt`, verifies the binary against it.
 3. NullBot starts the server over stdio with `--workspace` set to the folder of your primary project.
 4. For `vision_extract`, add an OpenAI or OpenRouter API key in **Settings > Accounts**. NullBot passes it to the server as `OPENAI_API_KEY` or `OPENROUTER_API_KEY`.
@@ -106,7 +106,7 @@ The `env` block is only needed for `vision_extract`. Without `--workspace`, the 
 | `--max-bytes` | `1048576` | Default and upper limit for the `max_bytes` argument of the extraction tools. |
 | `--version` | `false` | Print the version and exit. |
 
-`parse_file`, `extract_part`, and `vision_extract` cap `max_bytes` at `--max-bytes`. `extract_text` uses its `max_bytes` argument as given.
+Every extraction tool caps `max_bytes` at `--max-bytes`.
 
 ### Environment variables
 
@@ -140,8 +140,8 @@ Legacy SSE:
 ## Safety
 
 - The server does not change files. No tool writes, moves, or deletes anything.
-- Every path must be relative to the workspace. Absolute paths are rejected, and so are paths that leave the workspace with `..`.
-- Paths are checked after cleaning, but symlinks are not resolved. A symlink inside the workspace that points outside it is followed, so do not keep such links in a workspace you give to an agent.
+- A path may be relative to the workspace or absolute, as long as it is inside the workspace; paths that leave it, with `..` or an absolute path elsewhere, are refused, and the error names the workspace so the agent can correct the path.
+- Links are resolved: a file or folder link inside the workspace that points outside it is refused, for reads and writes.
 - `vision_extract` sends file contents to OpenAI or OpenRouter: the whole PDF, the whole image, or the images inside a DOCX file. Do not use it on files that must not leave the machine. No other tool makes network requests.
 - Output is bounded by `max_bytes`, row, entry, and chapter limits, so large files do not flood the agent's context.
 - The HTTP and SSE transports have no authentication. Keep `--addr` on `127.0.0.1`.

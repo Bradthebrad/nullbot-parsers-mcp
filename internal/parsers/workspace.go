@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 )
 
 type Config struct {
@@ -43,32 +42,10 @@ func New(config Config) (*ParserTools, error) {
 	return &ParserTools{root: root, maxBytes: maxBytes}, nil
 }
 
+// resolve turns a tool's path argument into a path inside the workspace,
+// relative to it or absolute.
 func (p *ParserTools) resolve(rel string) (string, error) {
-	if rel == "" {
-		return "", fmt.Errorf("path is required")
-	}
-	if filepath.IsAbs(rel) {
-		return "", fmt.Errorf("absolute paths are not allowed: %s", rel)
-	}
-	full := filepath.Join(p.root, filepath.Clean(rel))
-	if err := p.ensureInside(full); err != nil {
-		return "", err
-	}
-	return full, nil
-}
-
-func (p *ParserTools) ensureInside(path string) error {
-	abs, err := filepath.Abs(path)
-	if err != nil {
-		return err
-	}
-	if abs == p.root {
-		return nil
-	}
-	if !strings.HasPrefix(abs, p.root+string(os.PathSeparator)) {
-		return fmt.Errorf("path escapes workspace: %s", path)
-	}
-	return nil
+	return confine(p.root, rel)
 }
 
 func (p *ParserTools) rel(path string) string {
