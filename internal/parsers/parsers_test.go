@@ -163,3 +163,25 @@ func makeZip(t *testing.T, path string, files map[string]string) {
 		}
 	}
 }
+
+func TestPathsMayBeAbsoluteInsideTheWorkspaceButNotLinkedOut(t *testing.T) {
+	dir, outside := t.TempDir(), t.TempDir()
+	mustWrite(t, filepath.Join(dir, "notes.txt"), "inside")
+	mustWrite(t, filepath.Join(outside, "secret.txt"), "outside")
+	p, err := New(Config{Workspace: dir})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, err := p.resolve(filepath.Join(p.root, "notes.txt")); err != nil || filepath.Base(got) != "notes.txt" {
+		t.Fatalf("absolute path inside the workspace: %q, %v", got, err)
+	}
+	if _, err := p.resolve(filepath.Join(outside, "secret.txt")); err == nil {
+		t.Fatal("absolute path outside the workspace accepted")
+	}
+	if err := os.Symlink(filepath.Join(outside, "secret.txt"), filepath.Join(dir, "link.txt")); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	if _, err := p.resolve("link.txt"); err == nil {
+		t.Fatal("a link to a file outside the workspace was followed")
+	}
+}
